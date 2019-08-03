@@ -155,90 +155,60 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
 {   
     
-    //store the bboxes IDs for which each point belongs to, one ptr may result in multiple bboxes.
-    //std::vector<int> pre_result, curr_result;
-
-    int p_IDs = prevFrame.boundingBoxes.size();
-    int c_IDs = currFrame.boundingBoxes.size();
+    int l_prevBbox = prevFrame.boundingBoxes.size();
+    int l_currBbox = currFrame.boundingBoxes.size();
     //2D array to store all the pair counts
-    int ab[p_IDs][c_IDs] = {}; 
-    //bool pb=false, cb = false;
-    std::vector<int> query_id, train_id;
-    for (auto it = matches.begin(); it != matches.end() - 1; ++it) {
+    int ab[l_prevBbox][l_currBbox] = { }; 
+
+    //std::vector<int> query_id, train_id;
+    for (auto it = matches.begin(); it != matches.end(); ++it) {
+        //KeyPoint coordinate
+        cv::Point query = prevFrame.keypoints[it->queryIdx].pt;
+        cv::Point train = currFrame.keypoints[it->trainIdx].pt;
+
+        //store the bboxes IDs for which each point belongs to, one ptr may result in multiple bboxes.
+        std::vector<int> query_id, train_id; //inside the iterator!
+
         //extract the bbox IDs which contains the keypoints for the previous frame
-        //for(auto it2=prevFrame.boundingBoxes.begin();it2!=prevFrame.boundingBoxes.end();++it2) {
-            //int idx_kpt = it1->queryIdx;
-            //cv::Point &kpt = prevFrame.keypoints[it1->queryIdx].pt;
-        //    if(it2->roi.contains(prevFrame.keypoints[it1->queryIdx].pt)) {
-        //        pre_result.push_back(it2->boxID);
-        //    }
-        //}
-        std::vector<int> pre_result, curr_result;
-        cv::KeyPoint query = prevFrame.keypoints[it->queryIdx];
-        auto query_pt = cv::Point(query.pt.x, query.pt.y);
-        //auto query_pt = query.pt;
-        cv::KeyPoint train = currFrame.keypoints[it->trainIdx];
-        auto train_pt = train.pt;
-
-        //cv::Point prev_p = cv::Point(prevFrame.keypoints[it1->queryIdx].pt.x, prevFrame.keypoints[it1->queryIdx].pt.y);
         for(auto it2=prevFrame.boundingBoxes.begin();it2!=prevFrame.boundingBoxes.end();++it2) {
-        //for(int i=0;i<p_IDs;i++) {
-            //if(prevFrame.boundingBoxes[i].roi.contains(query_pt)) {
-            if(it2->roi.contains(query_pt)) {
-                //pb = true;
-                pre_result.push_back(it2->boxID);
-            }
-    }
-
-        //extract the bbox IDs which contains the keypoints for the currents frame
-        //for(int i=0;i<c_IDs;i++) {
-        for(auto it3=prevFrame.boundingBoxes.begin();it3!=prevFrame.boundingBoxes.end();++it3) {
-            if(it3->roi.contains(train_pt)) {
-                //cb = true;
-                curr_result.push_back(it3->boxID);
+            if(it2->roi.contains(query)) {
+                query_id.push_back(it2->boxID);
             }
         }
-      
-/*
 
-    for (auto it = matches.begin(); it != matches.end() - 1; ++it)     {
-        cv::KeyPoint query = prevFrame.keypoints[it->queryIdx];
-        auto query_pt = cv::Point(query.pt.x, query.pt.y);
-        bool pb = false;
-        cv::KeyPoint train = currFrame.keypoints[it->trainIdx];
-        auto train_pt = cv::Point(train.pt.x, train.pt.y);
-        bool cb = false;
-        std::vector<int> query_id, train_id;
-*/
-        //if(pre_result.size()>0 && curr_result.size()>0) {
-        if(pre_result.size() && curr_result.size()) {
-            for(int x : pre_result) {
-                for(int y : curr_result) {
+        //extract the bbox IDs which contains the keypoints for the currents frame
+        for(auto it2=currFrame.boundingBoxes.begin();it2!=currFrame.boundingBoxes.end();++it2) {
+            if(it2->roi.contains(train)) {
+                train_id.push_back(it2->boxID);
+            }
+        }      
+
+        //update the counts for the possiable combination pair in 2D array
+        if(query_id.size() && train_id.size()) {
+            for(int x : query_id) {
+                for(int y : train_id) {
                     ab[x][y] += 1;
                 }
             }            
         }
-
-
     }
 
     //traverse the 2D array by row(from previous frame), update the maxium value and extract the index for the paired(current frame) bbox ID.
-    for(int i=0;i<p_IDs;i++) {
+    for(int i=0;i<l_prevBbox;i++) {
         int curr_idx = 0;
         int max_c = 0;
-        for(int j=0;j<c_IDs;j++) {
+        for(int j=0;j<l_currBbox;j++) {
             if(ab[i][j] > max_c) {
                 max_c = ab[i][j]; 
                 curr_idx = j;
             }
         }
-        if(max_c>0) {
+        //if(max_c>0) {
             bbBestMatches[i] = curr_idx;
             cout<<"Previous bbox#: " << i << " matched --> Current bbox#： "<< bbBestMatches[i] << endl;
-        }
+        //}
 
     }
 
     // ...
 }
-
