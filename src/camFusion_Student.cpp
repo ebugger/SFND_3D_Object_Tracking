@@ -174,17 +174,17 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
         //    }
         //}
         std::vector<int> pre_result, curr_result;
-        //cv::KeyPoint query = prevFrame.keypoints[it->queryIdx];
-       // auto query_pt = cv::Point(query.pt.x, query.pt.y);
+        cv::KeyPoint query = prevFrame.keypoints[it->queryIdx];
+        auto query_pt = cv::Point(query.pt.x, query.pt.y);
         //auto query_pt = query.pt;
-        //cv::KeyPoint train = currFrame.keypoints[it->trainIdx];
-        //auto train_pt = train.pt;
+        cv::KeyPoint train = currFrame.keypoints[it->trainIdx];
+        auto train_pt = train.pt;
 
         //cv::Point prev_p = cv::Point(prevFrame.keypoints[it1->queryIdx].pt.x, prevFrame.keypoints[it1->queryIdx].pt.y);
         for(auto it2=prevFrame.boundingBoxes.begin();it2!=prevFrame.boundingBoxes.end();++it2) {
         //for(int i=0;i<p_IDs;i++) {
             //if(prevFrame.boundingBoxes[i].roi.contains(query_pt)) {
-            if(it2->roi.contains(prevFrame.keypoints[it->queryIdx].pt)) {
+            if(it2->roi.contains(query_pt)) {
                 //pb = true;
                 pre_result.push_back(it2->boxID);
             }
@@ -193,7 +193,7 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
         //extract the bbox IDs which contains the keypoints for the currents frame
         //for(int i=0;i<c_IDs;i++) {
         for(auto it3=prevFrame.boundingBoxes.begin();it3!=prevFrame.boundingBoxes.end();++it3) {
-            if(it3->roi.contains(currFrame.keypoints[it->trainIdx].pt)) {
+            if(it3->roi.contains(train_pt)) {
                 //cb = true;
                 curr_result.push_back(it3->boxID);
             }
