@@ -91,9 +91,12 @@ int main(int argc, const char *argv[])
         // push image into data frame buffer
         DataFrame frame;
         frame.cameraImg = img;
+        if(dataBuffer.size() == dataBufferSize) {
+            dataBuffer.erase(dataBuffer.begin());
+        } 
         dataBuffer.push_back(frame);
 
-        cout << "#1 : LOAD IMAGE INTO BUFFER done" << endl;
+        cout << "#1 : LOAD IMAGE INTO BUFFER done and buffer size now is: " << dataBuffer.size() << endl;
 
 
         /* DETECT & CLASSIFY OBJECTS */
@@ -102,8 +105,10 @@ int main(int argc, const char *argv[])
         float nmsThreshold = 0.4;        
         detectObjects((dataBuffer.end() - 1)->cameraImg, (dataBuffer.end() - 1)->boundingBoxes, confThreshold, nmsThreshold,
                       yoloBasePath, yoloClassesFile, yoloModelConfiguration, yoloModelWeights, bVis);
-
-        cout << "#2 : DETECT & CLASSIFY OBJECTS done" << endl;
+        for(auto it=(dataBuffer.end() - 1)->boundingBoxes.begin();it!=(dataBuffer.end() - 1)->boundingBoxes.end();it++) {
+            cout<<"bBox#"<< it->boxID<< " : " <<"ClassID: " <<it->classID<<endl;
+        }
+        cout << "#2 : DETECT & CLASSIFY OBJECTS done and detects: " << (dataBuffer.end() - 1)->boundingBoxes.size()<< " bBoxes."<< endl;
 
 
         /* CROP LIDAR POINTS */
@@ -112,14 +117,14 @@ int main(int argc, const char *argv[])
         string lidarFullFilename = imgBasePath + lidarPrefix + imgNumber.str() + lidarFileType;
         std::vector<LidarPoint> lidarPoints;
         loadLidarFromFile(lidarPoints, lidarFullFilename);
-
+        cout << "Load " <<lidarPoints.size()<< " Lidar points"<< endl;
         // remove Lidar points based on distance properties
         float minZ = -1.5, maxZ = -0.9, minX = 2.0, maxX = 20.0, maxY = 2.0, minR = 0.1; // focus on ego lane
         cropLidarPoints(lidarPoints, minX, maxX, maxY, minZ, maxZ, minR);
     
         (dataBuffer.end() - 1)->lidarPoints = lidarPoints;
 
-        cout << "#3 : CROP LIDAR POINTS done" << endl;
+        cout << "#3 : CROP LIDAR POINTS done and " <<lidarPoints.size()<< " Lidar points left"<< endl;
 
 
         /* CLUSTER LIDAR POINT CLOUD */
@@ -135,7 +140,9 @@ int main(int argc, const char *argv[])
             show3DObjects((dataBuffer.end()-1)->boundingBoxes, cv::Size(4.0, 20.0), cv::Size(2000, 2000), true);
         }
         bVis = false;
-
+        for(auto it=(dataBuffer.end()-1)->boundingBoxes.begin();it!=(dataBuffer.end()-1)->boundingBoxes.end();it++) {
+            cout<<"bBox#"<<it->boxID<<" of classID: "<<it->classID<<" contains " << it->lidarPoints.size() <<" Lidar points" <<endl;
+        }
         cout << "#4 : CLUSTER LIDAR POINT CLOUD done" << endl;
         
         
@@ -178,7 +185,7 @@ int main(int argc, const char *argv[])
         // push keypoints and descriptor for current frame to end of data buffer
         (dataBuffer.end() - 1)->keypoints = keypoints;
 
-        cout << "#5 : DETECT KEYPOINTS done" << endl;
+        cout << "#5 : DETECT KEYPOINTS done and detec "<< (dataBuffer.end() - 1)->keypoints.size() << " KeyPoints"<< endl;
 
 
         /* EXTRACT KEYPOINT DESCRIPTORS */
@@ -195,7 +202,7 @@ int main(int argc, const char *argv[])
 
         if (dataBuffer.size() > 1) // wait until at least two images have been processed
         {
-
+            cout<<"Starting to match as dataBuffer size is: " << dataBuffer.size() <<"now"<<endl;
             /* MATCH KEYPOINT DESCRIPTORS */
 
             vector<cv::DMatch> matches;
@@ -210,7 +217,7 @@ int main(int argc, const char *argv[])
             // store matches in current data frame
             (dataBuffer.end() - 1)->kptMatches = matches;
 
-            cout << "#7 : MATCH KEYPOINT DESCRIPTORS done" << endl;
+            cout << "#7 : MATCH KEYPOINT DESCRIPTORS done and matched: " << (dataBuffer.end() - 1)->kptMatches.size() << endl;
 
             
             /* TRACK 3D OBJECT BOUNDING BOXES */
