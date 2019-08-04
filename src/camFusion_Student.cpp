@@ -148,7 +148,40 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
 {
-    // ...
+    double dT = 1 / frameRate;
+    long medIndex; // ...
+    double median_Prev_x, median_Curr_x;
+    
+    cv::Point mean_Prev, mean_Curr;
+    //double temp_cx, temp_cy, temp_px, temp_py;
+    std::vector<double> temp_px, temp_cx;
+    for(auto it=lidarPointsPrev.begin();it!=lidarPointsPrev.end();it++) {
+            temp_px.push_back(it->x);       
+    }
+    std::sort(temp_px.begin(), temp_px.end());
+    medIndex = floor(temp_px.size() / 2.0);
+    median_Prev_x = temp_px.size() % 2 ? (temp_px[medIndex-1] + temp_px[medIndex]) / 2 : temp_px[medIndex];
+
+    //TTC = -dT / (1 - meanDistRatio);
+    for(auto it=lidarPointsCurr.begin();it!=lidarPointsCurr.end();it++) {
+            temp_cx.push_back(it->x);    
+
+    }
+    if(temp_px.size() && temp_cx.size()) {
+        std::sort(temp_cx.begin(), temp_cx.end());
+        medIndex = floor(temp_cx.size() / 2.0);
+        median_Curr_x = temp_cx.size() % 2 ? (temp_cx[medIndex-1] + temp_cx[medIndex]) / 2 : temp_cx[medIndex];
+
+        TTC = median_Curr_x * dT / (median_Prev_x - median_Curr_x);
+        cout<<"Median x from previous bBox: " << median_Prev_x <<endl;
+        cout<<"Median x from Current bBox: " << median_Curr_x <<endl;
+        cout<<"TTC based on Lidar is: " << TTC << endl;
+    }else {
+        TTC = NAN;
+        return;
+    }
+
+
 }
 
 
@@ -203,7 +236,8 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
                 curr_idx = j;
             }
         }
-        //if(max_c>0) {
+        //if(max_c>0){
+            //map(i,j) === (prev, curr)
             bbBestMatches[i] = curr_idx;
             cout<<"Previous bbox#: " << i << " matched --> Current bbox#： "<< bbBestMatches[i] << endl;
         //}
