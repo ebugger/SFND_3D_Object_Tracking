@@ -133,7 +133,50 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
 // associate a given bounding box with the keypoints it contains
 void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
 {
-    // ...
+    std::vector<cv::DMatch> match_in_roi;
+    cout<<"Raw Matched size " << kptMatches.size()<<endl;
+    //travesal the DMatches and find the kpt idx, and the use the KeyPoint to check if the bBox contains the kpt
+    for(auto it = kptMatches.begin();it!=kptMatches.end();it++) {
+        if(boundingBox.roi.contains(kptsCurr[it->trainIdx].pt)) {
+            //update the bBox kptMatches propertity
+            boundingBox.kptMatches.push_back(*it);
+        }
+    }
+    cout<<"ROI Matched size " << boundingBox.kptMatches.size()<<endl;
+    //compute the mean distanve for all roi matched ptr
+    double sum_distance = 0, mean_distance = 0;
+    for(auto it=boundingBox.kptMatches.begin();it!=boundingBox.kptMatches.end();it++) {
+        double temp_dist;
+        cv::KeyPoint prev_kpt = kptsPrev.at(it->queryIdx);
+        cv::KeyPoint curr_kpt = kptsCurr.at(it->trainIdx);
+
+        temp_dist = cv::norm(prev_kpt.pt - curr_kpt.pt);
+        //cout<<"current distance "<< temp_dist<<endl;
+        sum_distance += temp_dist;
+    }
+    mean_distance = sum_distance / boundingBox.kptMatches.size();
+    //cout<<"boundingBox.kptMatches.size()"<< boundingBox.kptMatches.size()<<endl;
+    //cout<<"Mean distance "<< mean_distance<<endl;
+    //filter the outlier by the threshold
+    double ratio_dis_thresh = 1.7;
+    for(auto it=boundingBox.kptMatches.begin();it!=boundingBox.kptMatches.end();) {
+        double temp_dist;
+        cv::KeyPoint prev_kpt = kptsPrev.at(it->queryIdx);
+        cv::KeyPoint curr_kpt = kptsCurr.at(it->trainIdx);
+        temp_dist = cv::norm(prev_kpt.pt - curr_kpt.pt);
+        //cout<<"current distance "<< temp_dist<<endl;
+        if(temp_dist > ratio_dis_thresh * mean_distance) {
+            //boundingBox.kptMatches.pop_back();
+            boundingBox.kptMatches.erase(it);
+            //cout<<"Kpt removed as Outlier"<<endl;
+        }else {
+            //cout<<"kpt abtained"<<endl;
+            //continue;
+            it++;
+        }
+    }
+    cout<<"Ratio Matched size " << boundingBox.kptMatches.size()<<endl;   
+
 }
 
 
