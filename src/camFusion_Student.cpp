@@ -133,19 +133,20 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
 // associate a given bounding box with the keypoints it contains
 void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
 {
+    double sum_distance = 0, mean_distance = 0;
     std::vector<cv::DMatch> match_in_roi;
     cout<<"Raw Matched size " << kptMatches.size()<<endl;
     //travesal the DMatches and find the kpt idx, and the use the KeyPoint to check if the bBox contains the kpt
     for(auto it = kptMatches.begin();it!=kptMatches.end();it++) {
         if(boundingBox.roi.contains(kptsCurr[it->trainIdx].pt)) {
             //update the bBox kptMatches propertity
-            boundingBox.kptMatches.push_back(*it);
+            match_in_roi.push_back(*it);
         }
     }
-    cout<<"ROI Matched size " << boundingBox.kptMatches.size()<<endl;
+    cout<<"ROI Matched size " << match_in_roi.size()<<endl;
+
     //compute the mean distanve for all roi matched ptr
-    double sum_distance = 0, mean_distance = 0;
-    for(auto it=boundingBox.kptMatches.begin();it!=boundingBox.kptMatches.end();it++) {
+    for(auto it=match_in_roi.begin();it!=match_in_roi.end();it++) {
         double temp_dist;
         cv::KeyPoint prev_kpt = kptsPrev.at(it->queryIdx);
         cv::KeyPoint curr_kpt = kptsCurr.at(it->trainIdx);
@@ -154,25 +155,21 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
         //cout<<"current distance "<< temp_dist<<endl;
         sum_distance += temp_dist;
     }
-    mean_distance = sum_distance / boundingBox.kptMatches.size();
+    mean_distance = sum_distance / match_in_roi.size();
     //cout<<"boundingBox.kptMatches.size()"<< boundingBox.kptMatches.size()<<endl;
     //cout<<"Mean distance "<< mean_distance<<endl;
     //filter the outlier by the threshold
     double ratio_dis_thresh = 1.7;
-    for(auto it=boundingBox.kptMatches.begin();it!=boundingBox.kptMatches.end();) {
+    for(auto it=match_in_roi.begin();it!=match_in_roi.end();it++) {
         double temp_dist;
         cv::KeyPoint prev_kpt = kptsPrev.at(it->queryIdx);
         cv::KeyPoint curr_kpt = kptsCurr.at(it->trainIdx);
         temp_dist = cv::norm(prev_kpt.pt - curr_kpt.pt);
         //cout<<"current distance "<< temp_dist<<endl;
-        if(temp_dist > ratio_dis_thresh * mean_distance) {
+        if(temp_dist < ratio_dis_thresh * mean_distance) {
             //boundingBox.kptMatches.pop_back();
-            boundingBox.kptMatches.erase(it);
+            boundingBox.kptMatches.push_back(*it);
             //cout<<"Kpt removed as Outlier"<<endl;
-        }else {
-            //cout<<"kpt abtained"<<endl;
-            //continue;
-            it++;
         }
     }
     cout<<"Ratio Matched size " << boundingBox.kptMatches.size()<<endl;   
@@ -184,6 +181,55 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
 void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, 
                       std::vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg)
 {
+    // compute distance ratios between all matched keypoints
+    vector<double> distRatios; // stores the distance ratios for all keypoints between curr. and prev. frame
+    for (auto it1 = kptMatches.begin(); it1 != kptMatches.end() - 1; ++it1)
+    { // outer kpt. loop
+
+        // get current keypoint and its matched partner in the prev. frame
+        cv::KeyPoint kpOuterCurr = kptsCurr.at(it1->trainIdx);
+        cv::KeyPoint kpOuterPrev = kptsPrev.at(it1->queryIdx);
+
+        for (auto it2 = kptMatches.begin() + 1; it2 != kptMatches.end(); ++it2)
+        { // inner kpt.-loop
+
+            double minDist = 100.0; // min. required distance
+
+            // get next keypoint and its matched partner in the prev. frame
+            cv::KeyPoint kpInnerCurr = kptsCurr.at(it2->trainIdx);
+            cv::KeyPoint kpInnerPrev = kptsPrev.at(it2->queryIdx);
+
+            // compute distances and distance ratios
+            double distCurr = cv::norm(kpOuterCurr.pt - kpInnerCurr.pt);
+            double distPrev = cv::norm(kpOuterPrev.pt - kpInnerPrev.pt);
+
+            if (distPrev > std::numeric_limits<double>::epsilon() && distCurr >= minDist)
+            { // avoid division by zero
+
+                double distRatio = distCurr / distPrev;
+                distRatios.push_back(distRatio);
+            }
+        } // eof inner loop over all matched kpts
+    }     // eof outer loop over all matched kpts
+
+    // only continue if list of distance ratios is not empty
+    if (distRatios.size() == 0)
+    {
+        TTC = NAN;
+        return;
+    }
+    //int n_element = sizeof(distRatios) / sizeof(double);
+    // compute camera-based TTC from distance ratios
+    //double meanDistRatio = std::accumulate(distRatios.begin(), distRatios.end(), 0.0) / distRatios.size();
+    std::sort(distRatios.begin(), distRatios.end());
+    long medIndex = floor(distRatios.size() / 2.0); //floor(2.6)==2 ceil(2.6)==3 round(2.6)==3
+    double medianDistRatio = distRatios.size() % 2 == 0 ? (distRatios[medIndex-1] + distRatios[medIndex]) / 2 : distRatios[medIndex];
+    double dT = 1 / frameRate;
+    //TTC = -dT / (1 - meanDistRatio);
+    TTC = -dT / (1 - medianDistRatio);
+    cout<<"Cemera distance Ratio from Current bBox: " << medianDistRatio <<endl;
+    cout<<"TTC based on Cemera is: " << TTC << endl;
+
     // ...
 }
 
@@ -216,8 +262,8 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
         median_Curr_x = temp_cx.size() % 2 ? (temp_cx[medIndex-1] + temp_cx[medIndex]) / 2 : temp_cx[medIndex];
 
         TTC = median_Curr_x * dT / (median_Prev_x - median_Curr_x);
-        cout<<"Median x from previous bBox: " << median_Prev_x <<endl;
-        cout<<"Median x from Current bBox: " << median_Curr_x <<endl;
+        cout<<"Lidar ptr Median x from previous bBox: " << median_Prev_x <<endl;
+        cout<<"Lidar ptr Median x from Current bBox: " << median_Curr_x <<endl;
         cout<<"TTC based on Lidar is: " << TTC << endl;
     }else {
         TTC = NAN;
