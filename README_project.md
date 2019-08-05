@@ -28,9 +28,9 @@ As the gloabl trend is as we expected descending order.
 
 The Lidar based reulst is not as bumper as Cemera based. As you could see there is still outliers in the bBox:
 
-![no txt](images/outlier_01)
+![no txt](images/outlier_01.png)
 
-![no txt](images/outlier_02)
+![no txt](images/outlier_02.png)
 
 We just simply use the median point instead of mean which it is more affected by the outlier.
 
