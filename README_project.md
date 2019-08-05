@@ -199,7 +199,7 @@ the Summary.csv contains the cemera ttc based on all possiable pairs of detector
 Interesting ther is kind of outliers in the result "-inf" 
 1. eg. FAST + BRIEF on frame 4 and frame 5 
 
-![no text](images/gfast+brief_result.png)
+![no text](images/fast+brief_result.png)
 
 ![no text](images/inf_01.png)
 
@@ -208,7 +208,7 @@ Interesting ther is kind of outliers in the result "-inf"
 we could hardly see the change or almost it's identical between the 2 frames,that means the distance ratio for KeyPoints between frame is 1. This most happens on FAST detector.
 
 2. eg. ORB + FREAK on frame 4 - frame 7
-![no text](images/orb+freak_result.pn)
+![no text](images/orb+freak_result.png)
 
 ![no text](images/ORB.png)
 
