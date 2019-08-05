@@ -152,11 +152,10 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
         cv::KeyPoint curr_kpt = kptsCurr.at(it->trainIdx);
 
         temp_dist = cv::norm(prev_kpt.pt - curr_kpt.pt);
-        //cout<<"current distance "<< temp_dist<<endl;
         sum_distance += temp_dist;
     }
     mean_distance = sum_distance / match_in_roi.size();
-    //cout<<"boundingBox.kptMatches.size()"<< boundingBox.kptMatches.size()<<endl;
+
     //cout<<"Mean distance "<< mean_distance<<endl;
     //filter the outlier by the threshold
     double ratio_dis_thresh = 1.7;
@@ -167,9 +166,7 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
         temp_dist = cv::norm(prev_kpt.pt - curr_kpt.pt);
         //cout<<"current distance "<< temp_dist<<endl;
         if(temp_dist < ratio_dis_thresh * mean_distance) {
-            //boundingBox.kptMatches.pop_back();
             boundingBox.kptMatches.push_back(*it);
-            //cout<<"Kpt removed as Outlier"<<endl;
         }
     }
     cout<<"Ratio Matched size " << boundingBox.kptMatches.size()<<endl;   
