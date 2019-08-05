@@ -131,14 +131,28 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
 
 
 // associate a given bounding box with the keypoints it contains
-void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
+void clusterKptMatchesWithROI(BoundingBox &boundingBox_prev, BoundingBox &boundingBox_curr, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
 {
     double sum_distance = 0, mean_distance = 0;
     std::vector<cv::DMatch> match_in_roi;
     cout<<"Raw Matched size " << kptMatches.size()<<endl;
-    //travesal the DMatches and find the kpt idx, and the use the KeyPoint to check if the bBox contains the kpt
+
+    double shrinkFactor = 0.05;
+    cv::Rect smallerBox_prev, smallerBox_curr;
+
+    smallerBox_prev.x = boundingBox_prev.roi.x + shrinkFactor * boundingBox_prev.roi.width / 2.0;
+    smallerBox_prev.y = boundingBox_prev.roi.y + shrinkFactor * boundingBox_prev.roi.height / 2.0;
+    smallerBox_prev.width = boundingBox_prev.roi.width * (1 - shrinkFactor);
+    smallerBox_prev.height = boundingBox_prev.roi.height * (1 - shrinkFactor);
+
+    smallerBox_curr.x = boundingBox_curr.roi.x + shrinkFactor * boundingBox_curr.roi.width / 2.0;
+    smallerBox_curr.y = boundingBox_curr.roi.y + shrinkFactor * boundingBox_curr.roi.height / 2.0;
+    smallerBox_curr.width = boundingBox_curr.roi.width * (1 - shrinkFactor);
+    smallerBox_curr.height = boundingBox_curr.roi.height * (1 - shrinkFactor);
+
+    //travesal the DMatches and find the kpt idx, and the use the KeyPoint to check if the bBox contains the kpt in both curr and prev.
     for(auto it = kptMatches.begin();it!=kptMatches.end();it++) {
-        if(boundingBox.roi.contains(kptsCurr[it->trainIdx].pt)) {
+        if(smallerBox_prev.contains(kptsCurr[it->trainIdx].pt) && smallerBox_curr.contains(kptsPrev[it->queryIdx].pt)) {
             //update the bBox kptMatches propertity
             match_in_roi.push_back(*it);
         }
@@ -166,10 +180,10 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
         temp_dist = cv::norm(prev_kpt.pt - curr_kpt.pt);
         //cout<<"current distance "<< temp_dist<<endl;
         if(temp_dist < ratio_dis_thresh * mean_distance) {
-            boundingBox.kptMatches.push_back(*it);
+            boundingBox_curr.kptMatches.push_back(*it);
         }
     }
-    cout<<"Ratio Matched size " << boundingBox.kptMatches.size()<<endl;   
+    cout<<"Ratio Matched size " << boundingBox_curr.kptMatches.size()<<endl;   
 
 }
 
@@ -223,8 +237,9 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
     double medianDistRatio = distRatios.size() % 2 == 0 ? (distRatios[medIndex-1] + distRatios[medIndex]) / 2 : distRatios[medIndex];
     double dT = 1 / frameRate;
     //TTC = -dT / (1 - meanDistRatio);
-    TTC = -dT / (1 - medianDistRatio);
-    cout<<"Cemera distance Ratio from Current bBox: " << medianDistRatio <<endl;
+    TTC = -dT / (1 - medianDistRatio - std::numeric_limits<double>::epsilon());
+    
+    cout<<"Cemera distance Ratio from Current bBox: " << medianDistRatio <<" of size: " << distRatios.size()<<endl;
     cout<<"TTC based on Cemera is: " << TTC << endl;
 
     // ...
@@ -253,6 +268,7 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
             temp_cx.push_back(it->x);    
 
     }
+
     if(temp_px.size() && temp_cx.size()) {
         std::sort(temp_cx.begin(), temp_cx.end());
         medIndex = floor(temp_cx.size() / 2.0);
